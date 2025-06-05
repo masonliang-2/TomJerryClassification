@@ -15,25 +15,18 @@ for root, dirs, files in os.walk(dataset_testing_path):
             os.remove(os.path.join(root, file))
             print(f"Deleted: {os.path.join(root, file)}")
 
+IMAGE_SIZE = (64, 64)  # Define the target image size
 
 def debug_image(dataset_path):
     image = tf.io.read_file(dataset_path)
     image = tf.image.decode_image(image, channels=3)
-    image = tf.image.resize(image, (256, 256))
+    image = tf.image.resize(image, IMAGE_SIZE)
     
     plt.imshow(image.numpy().astype("uint8"))  # Convert to uint8 before displaying
     plt.show()
 
-debug_image("tom_and_jerry_training_dataset/tom/frame368.jpg")
-def comment():
-    for subdirectory in os.listdir(dataset_path):
-        
-        # Ensure it's a directory before listing files            
-            subdirectory_path = os.path.join(dataset_path, subdirectory)
-            for filename in os.listdir(subdirectory_path):
-                file_path = os.path.join(subdirectory_path, filename)
-                debug_image(file_path)
-                break
+#debug_image("tom_and_jerry_training_dataset/tom/frame368.jpg")
+
             
 # train_dataset = train_dataset.shuffle(1000).prefetch(buffer_size=tf.data.AUTOTUNE)
 
@@ -47,26 +40,13 @@ val_size = 1 - train_size
 
 train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
     dataset_path,
-    image_size=(64, 64),
+    image_size=IMAGE_SIZE,
     batch_size=64,
     validation_split=0.2,  # Use 20% for validation
     subset="training",
     seed=123,  # Ensures consistent split
     interpolation="nearest"  
 ) 
-  
-def comment2():
-    for data, label in train_dataset.take(30):
-        img = data.numpy()[0]  # Extract the first image in the batch
-        plt.imshow(img)
-        plt.title(f"Label: {label.numpy()[0]}")
-        plt.show()
-        print("Features shape:", data.shape)
-        print("Labels shape:", label.shape)
-        print("First Image Data:\n", data.numpy())  # First sample's pixel values
-        print("First Label:\n", label.numpy())  # First label
-        print("Min Pixel Value:", np.min(data.numpy()))
-        print("Max Pixel Value:", np.max(data.numpy()))  
         
 print("Class Names:", train_dataset.class_names)
 
@@ -77,7 +57,7 @@ train_dataset = train_dataset.map(lambda x, y: (normalization_layer(x), y))
 
 val_dataset = tf.keras.preprocessing.image_dataset_from_directory(
     dataset_path,
-    image_size=(64, 64),
+    image_size=IMAGE_SIZE,
     batch_size=64,
     validation_split=0.2,  # Use same split
     subset="validation",
@@ -90,9 +70,6 @@ val_dataset = val_dataset.map(lambda x, y: (normalization_layer(x), y))
 
 
 
-
-
-
 # Get total number of batches
 total_batches = len(train_dataset)
 
@@ -102,7 +79,7 @@ train_batches = int(total_batches * train_size)
 
 
 # Define class names
-class_names = ['tom', 'jerry', 'both', 'neither']
+#class_names = ['jerry','tom']  # Update class names to match your dataset
 
 # Build CNN model
 
@@ -112,14 +89,12 @@ model = keras.Sequential([
         layers.Conv2D(32, (3, 3), activation='relu'),
         layers.MaxPooling2D(2, 2),  # Reduce size
         layers.Conv2D(32, (3, 3), activation='relu'),
-        layers.MaxPooling2D(2, 2),  # Reduce size
-        layers.Conv2D(32, (3, 3), activation='relu'),
 
-        #layers.GlobalAveragePooling2D(),
-        layers.Flatten(),
+        layers.GlobalAveragePooling2D(),
+        #layers.Flatten(),
         layers.Dense(64, activation='relu'),
         layers.Dropout(0.5),  # Helps prevent overfitting
-        layers.Dense(4, activation='softmax')
+        layers.Dense(2, activation='softmax')
 ])
 
 # Compile the model
@@ -130,7 +105,7 @@ model.compile(optimizer='adam',
 model.summary()
 
 # Train the model
-history = model.fit(train_dataset, validation_data=val_dataset, epochs=30)
+history = model.fit(train_dataset, validation_data=val_dataset, epochs=20)
 
 # Evaluate the model
 val_loss, val_acc = model.evaluate(val_dataset)
@@ -140,9 +115,13 @@ model.save("tom_and_jerry_classifier.h5")
 
 
 def predict_images_in_directory(directory_path, model):
-    class_names = ["Tom", "Jerry", "Both", "Neither"]  # Update class labels
+    class_names = ["jerry","tom"]  # Update class labels
     predictions = {}  # Store predictions for each image
 
+    accurate_toms = 0
+    total_toms = 0
+    accurate_jerrys = 0
+    total_jerrys = 0
     # Loop through all image files in the directory
     for subdirectory in os.listdir(directory_path):
      
@@ -150,7 +129,6 @@ def predict_images_in_directory(directory_path, model):
         subdirectory_path = os.path.join(directory_path, subdirectory)
         for filename in os.listdir(subdirectory_path):
             file_path = os.path.join(subdirectory_path, filename)
-
 
             try:
                 # Load and preprocess image
@@ -165,49 +143,55 @@ def predict_images_in_directory(directory_path, model):
 
                 # Store result
                 predictions[filename] = class_names[predicted_class]
-                print(f"{subdirectory_path}/{filename}({subdirectory}): {predictions[filename]}")
+                #print(f"{subdirectory_path}/{filename}({subdirectory}): {predictions[filename]}")
+                # Count accurate predictions
+                if (subdirectory == "tom"):
+                    total_toms += 1
+                    if (predictions[filename] == "tom"):
+                        accurate_toms += 1
+                    
+                elif (subdirectory == "jerry"):
+                    total_jerrys += 1
+                    if (predictions[filename] == "jerry"):
+                        accurate_jerrys += 1
+                        
 
             except Exception as e:
                 print(f"Skipping {filename} due to error: {e}")
+    print("Accurate toms: ", accurate_toms, "Accurate jerrys: ", accurate_jerrys)
+    print("Total toms: ", total_toms, "Total jerrys: ", total_jerrys)
+    print("Tom accuracy ", accurate_toms/total_toms, "Jerry accuracy: ", accurate_jerrys/total_jerrys)
+    print("Total accuracy ", (accurate_toms/total_toms + accurate_jerrys/total_jerrys) / 2)
 
+
+    
     return predictions  # Return all results as a dictionary
 
 model = keras.models.load_model("tom_and_jerry_classifier.h5")
 
 results = predict_images_in_directory(dataset_testing_path, model)
-# Build CNN model
-array = [
-        keras.Input(shape=(64, 64, 3)),  # Define input explicitly
-        layers.Conv2D(32, (3, 3), activation='relu'),
-        layers.MaxPooling2D(2, 2),  # Reduce size
-        layers.Conv2D(32, (3, 3), activation='relu', padding='same'),
-        layers.GlobalAveragePooling2D(),
-        #layers.Dense(64, activation='relu'),
-        #layers.Dropout(0.5),  # Helps prevent overfitting
-        layers.Dense(4, activation='softmax')
-]
-for i in range(0, 0):
-    model = keras.Sequential(array)
 
-    # Compile the model
-    model.compile(optimizer='adam',
-                loss='sparse_categorical_crossentropy',
-                metrics=['accuracy'])
+def predict_single_image(image_path, model):
+    class_names = ["jerry", "tom"]  # Same class label order used during training
 
-    model.summary()
+    try:
+        img = tf.keras.preprocessing.image.load_img(image_path, target_size=(64, 64))
+        img_array = tf.keras.preprocessing.image.img_to_array(img)
+        img_array = np.expand_dims(img_array, axis=0)  # Add batch dimension
+        img_array /= 255.0  # Normalize
 
-    # Train the model
-    history = model.fit(train_dataset, validation_data=val_dataset, epochs=5)
+        prediction = model.predict(img_array)
+        predicted_class = np.argmax(prediction)
 
-    # Evaluate the model
-    val_loss, val_acc = model.evaluate(val_dataset)
-    print(f"Validation Accuracy: {val_acc:.2f}")
+        print(f"Prediction for {image_path}: {class_names[predicted_class]}")
+        return class_names[predicted_class]
 
-    model.save("tom_and_jerry_classifier.h5")
-
-    model = keras.models.load_model("tom_and_jerry_classifier.h5")
-
-    results = predict_images_in_directory(dataset_testing_path, model)
+    except Exception as e:
+        print(f"Error processing {image_path}: {e}")
+        return None
+    
+for_fun_result = predict_single_image("test.jpg", model)
+print("For fun result: ", for_fun_result)
 
 
 
