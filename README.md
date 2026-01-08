@@ -1,4 +1,4 @@
-# Tom and Jerry Classification CNN
+# Cat'n'Mouse Detector
 
 To run this by itself: 
 python app.py
