@@ -1,6 +1,9 @@
-# MountainMadness
+# Tom and Jerry Classification CNN
 
-To run this: 
+To run this by itself: 
+python app.py
+
+To run this using docker: 
 
 docker build -t my-ai-app .     
 docker run -it --rm my-ai-app /bin/bash  
